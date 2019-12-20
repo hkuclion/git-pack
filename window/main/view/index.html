@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Git Packer</title>
+	<script src="vue-dev.js"></script>
+</head>
+<body>
+	<div id="app">
+		<table>
+			<tr>
+				<th>文件夹</th>
+				<td>
+					<div v-if="input.path">{{input.path}}</div>
+					<button @click="selectFolder">选择</button>
+				</td>
+			</tr>
+			<tr>
+				<th>源</th>
+				<td>
+					<select v-model="input.source_revision">
+						<option :key="rev_info.revision" v-for="rev_info in revisions" :value="rev_info.revision">{{rev_info.description}}</option>
+					</select>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<script>
+		let app = new Vue({
+			el: '#app',
+			data: {
+				revisions:[
+					{
+						'revision':'be3c1a12abb6d27a3e9d2f2ad421eb1124c8180b',
+						'description':'merge'
+					}
+				],
+				input:{
+					path:null,
+					source_revision:null
+				}
+			},
+			methods:{
+				selectFolder(){
+					console.log('selectFolder')
+				}
+			}
+		})
+	</script>
+</body>
+</html>

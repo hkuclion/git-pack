@@ -1,7 +1,7 @@
 class WindowManager{
 	static getWindow(name,...args){
 		if(!windows.has(name)){
-			let newWindow = require(`../${name}Window/creator.js`)(...args);
+			let newWindow = require(`../window/${name}/creator.js`)(...args);
 			newWindow.on('closed', () => {
 				WindowManager.deleteWindow(name);
 			});
