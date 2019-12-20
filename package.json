@@ -1,0 +1,19 @@
+{
+  "name": "get-pack",
+  "productName": "Git Revision Packer",
+  "version": "v1.0.0-beta",
+  "description": "Git Revision Packer",
+  "main": "main.js",
+  "licence": "MIT",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "hkuclion <hkuclion@qq.com> (http://hkuclion.com)",
+  "dependencies": {
+    "electron-json-config": "^1.4.0",
+    "electron-window-state": "^4.0.2"
+  },
+  "os": [
+    "win32"
+  ]
+}
