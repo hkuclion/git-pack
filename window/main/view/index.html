@@ -4,6 +4,78 @@
 	<meta charset="UTF-8">
 	<title>Git Packer</title>
 	<script src="vue-dev.js"></script>
+	<style>
+		*{
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		.result{
+			padding: 10px;
+			margin-top: 10px;
+			white-space: pre-wrap;
+			text-align: left;
+		}
+		.result.error{
+			background: pink;
+		}
+		.result.success{
+			background: lightgreen;
+		}
+		#app table{
+			width: 90%;
+			margin: 0 auto;
+		}
+		#app tr:nth-child(2n){
+			background: #fcfcfc;
+		}
+		#app input,#app select, #app button{
+			height: 2em;
+			line-height: 2em;
+		}
+		#app th {
+			width: 1em;
+			text-align: left;
+			padding-right: 1em;
+			white-space: nowrap;
+		}
+		#app td select{
+			max-width: max-content;
+			width: 100%;
+		}
+		#app td[colspan]{
+			text-align: center;
+		}
+		#app button{
+			display:inline-block;
+			outline:none;
+			cursor:pointer;
+			text-align:center;
+			text-decoration:none;
+			font:14px/100% Arial,Helvetica,sans-serif;
+			padding:.5em 2em .55em;
+			text-shadow:0 1px 1px rgba(0,0,0,.3);
+			border-radius:.5em;
+			box-shadow:0 1px 2px rgba(0,0,0,.2);
+
+			color:#fff;
+			border:solid 1px #007aa3;
+			background:#0179ab;
+			background:-webkit-gradient(linear,left top,left bottom,from(#02abf0),to(#0179ab));
+			background:-moz-linear-gradient(top,#02abf0,#0179ab);
+		}
+		#app button:hover {
+			background:#0179ab;
+			background:-webkit-gradient(linear,left top,left bottom,from(#0179ab),to(#02abf0));
+			background:-moz-linear-gradient(top,#0179ab,#02abf0);
+		}
+		#app button:active {
+			position:relative;
+			top:1px;
+			background:-webkit-gradient(linear,left top,left bottom,from(#02abf0),to(#0179ab));
+			background:-moz-linear-gradient(top,#02abf0,#0179ab);
+		}
+	</style>
 </head>
 <body>
 	<div id="app">
@@ -11,40 +83,180 @@
 			<tr>
 				<th>文件夹</th>
 				<td>
-					<div v-if="input.path">{{input.path}}</div>
+					<template v-if="input.path">{{input.path}}</template>
 					<button @click="selectFolder">选择</button>
 				</td>
 			</tr>
-			<tr>
-				<th>源</th>
+			<tr v-if="Array.isArray(available_branches)" v-show="available_branches.length > 1">
+				<th>分支</th>
 				<td>
-					<select v-model="input.source_revision">
-						<option :key="rev_info.revision" v-for="rev_info in revisions" :value="rev_info.revision">{{rev_info.description}}</option>
+					<select @change="loadCommits" v-if="Array.isArray(available_branches)" v-model="input.branch">
+						<option :key="branch.label" v-for="branch in available_branches" :value="branch.label">{{branch.label}}</option>
 					</select>
 				</td>
 			</tr>
+			<tr v-if="Array.isArray(available_commits)">
+				<th>目标</th>
+				<td>
+					<select :disabled="!Array.isArray(available_target_commits) || available_target_commits.length === 0" v-model="input.target_commit">
+						<option :key="commit.hash" v-for="commit in available_target_commits" :value="commit.hash">({{commit.authorDateRel}}) {{commit.subject}}</option>
+					</select>
+				</td>
+			</tr>
+			<tr v-if="Array.isArray(available_commits)">
+				<th>源</th>
+				<td>
+					<select :disabled="!Array.isArray(available_source_commits) || available_source_commits.length === 0" v-model="input.source_commit">
+						<option :key="commit.hash" v-for="commit in available_source_commits" :value="commit.hash">({{commit.authorDateRel}}) {{commit.subject}}</option>
+					</select>
+				</td>
+			</tr>
+			<tr v-if="select_info_ready">
+				<th>前缀路径</th>
+				<td v-if="select_info_ready">
+					<input type="text" v-model="input.prefix">
+				</td>
+			</tr>
+			<tr v-if="select_info_ready">
+				<th>文件名</th>
+				<td v-if="select_info_ready">
+					<input type="text" v-model="input.filename">
+				</td>
+			</tr>
+			<tr v-if="select_info_ready && input_info_ready">
+				<td colspan="2">
+					<button @click="pack">打包</button>
+				</td>
+			</tr>
+			<tr v-if="result.message">
+				<td colspan="2">
+					<div class="result" :class="result.type">{{result.message}}</div>
+				</td>
+			</tr>
 		</table>
+
 	</div>
 
 	<script>
 		let app = new Vue({
 			el: '#app',
 			data: {
-				revisions:[
-					{
-						'revision':'be3c1a12abb6d27a3e9d2f2ad421eb1124c8180b',
-						'description':'merge'
-					}
-				],
+				available_branches:null,
+				available_commits:null,
 				input:{
 					path:null,
-					source_revision:null
+					branch:null,
+					source_commit:null,
+					target_commit:null,
+					prefix:null,
+					filename:null,
+				},
+				result:{
+					message:null,
+					type:null,
 				}
 			},
 			methods:{
 				selectFolder(){
-					console.log('selectFolder')
+					let selected_folder = selectFolder({
+						'title':'选择项目文件夹',
+						'defaultPath':'D:\\xampps\\htdocs',
+						'properties':[
+							"openDirectory"
+						],
+					});
+					if(Array.isArray(selected_folder) && selected_folder[0] && selected_folder[0] !== this.input.path){
+						this.input.path = selected_folder[0];
+					}
+				},
+				async loadBranches(){
+					this.showResult('读取Branch信息中……');
+					try {
+						this.available_branches = [];
+						this.available_branches = await loadBranches(this.input.path);
+						this.hideResult();
+						this.input.branch = this.available_branches.find(branch=>branch.selected).label;
+					}
+					catch (e) {
+						this.showResult(e.message,'error');
+					}
+				},
+				async loadCommits(){
+					this.showResult('读取Commit信息中……');
+					try {
+						this.available_commits = [];
+						this.available_commits = await loadCommits(this.input.path, this.input.branch);
+						this.hideResult();
+					}
+					catch (e) {
+						this.showResult(e.message,'error');
+					}
+				},
+				async pack(){
+					this.showResult('打包中……');
+					try {
+						let files = await packGitCommits(this.input.path, this.input);
+						this.showResult('打包完成'+ '\n'+files.join('\n'),'success');
+					}
+					catch (e) {
+						this.showResult(e.message,'error');
+					}
+				},
+				showResult(message,type = null){
+					this.result.message = message;
+					this.result.type = type;
+				},
+				hideResult(){
+					this.result.message = null;
+					this.result.type = null;
 				}
+			},
+			computed:{
+				available_target_commits(){
+					if(!Array.isArray(this.available_commits))return [];
+					return this.available_commits;
+				},
+				available_source_commits(){
+					if(!this.input.target_commit)return [];
+
+					let target_index = this.available_commits.findIndex(commit=>commit.hash === this.input.target_commit);
+					return this.available_commits.slice(target_index+1);
+				},
+				select_info_ready(){
+					return this.input.path && this.input.branch && this.input.source_commit && this.input.target_commit
+				},
+				input_info_ready(){
+					return this.input.filename;
+				}
+			},
+			watch:{
+				available_source_commits(newValue,oldValue){
+					if(newValue.length && this.input.target_commit){
+						this.input.source_commit = newValue[0].hash;
+					}
+					else{
+						this.input.source_commit = null;
+					}
+				},
+				['input.path'](newValue,oldValue){
+					if(newValue){
+						let basename =newValue.split(/[\\\/]/).pop();
+						this.input.prefix = basename+'/';
+						this.input.filename = basename+'.zip';
+						this.input.branch = null;
+						this.loadBranches();
+					}
+				},
+				['input.branch'](newValue,oldValue){
+					if(newValue){
+						this.input.source_commit = null;
+						this.input.target_commit = null;
+						this.loadCommits();
+					}
+				}
+			},
+			mounted(){
+				this.input.path = window.pwd;
 			}
 		})
 	</script>

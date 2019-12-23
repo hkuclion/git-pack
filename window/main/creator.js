@@ -17,6 +17,9 @@ module.exports = function(){
 		width:windowState.width,
 		height:windowState.height,
 		show:false,
+		webPreferences:{
+			preload: path.join(__dirname, 'preload.js'),
+		}
 	});
 
 	windowState.manage(window);
@@ -33,12 +36,6 @@ module.exports = function(){
 		window.show();
 		window.focus();
 	});
-
-	window.webContents.executeJavaScript(`
-      require('electron').ipcRenderer.on('console.log',(ev,...args)=>{
-		console.log(...args);
-	  });
-    `);
 
 	return window;
 };
