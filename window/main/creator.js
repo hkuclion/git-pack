@@ -1,4 +1,4 @@
-const {BrowserWindow} = require('electron');
+const {BrowserWindow, ipcMain, dialog} = require('electron');
 const path = require('path');
 const url = require('url');
 
@@ -40,7 +40,9 @@ module.exports = function(){
 	return window;
 };
 
-
+ipcMain.on('showOpenDialogSync',(event, options)=>{
+	event.returnValue = dialog.showOpenDialogSync(options);
+})
 
 
 

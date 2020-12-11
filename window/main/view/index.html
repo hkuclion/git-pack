@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Git Packer</title>
-	<script src="vue-dev.js"></script>
+	<script src="vue.js"></script>
 	<style>
 		*{
 			margin: 0;
@@ -126,11 +126,13 @@
 			<tr v-if="select_info_ready && input_info_ready">
 				<td colspan="2">
 					<button @click="pack">打包</button>
+					<button @click="list">列出文件</button>
+					<button @click="list_deleted">列出删除文件</button>
 				</td>
 			</tr>
 			<tr v-if="result.message">
 				<td colspan="2">
-					<div class="result" :class="result.type">{{result.message}}</div>
+					<div class="result" :class="result.type" v-html="htmlfy(result.message)"></div>
 				</td>
 			</tr>
 		</table>
@@ -157,8 +159,8 @@
 				}
 			},
 			methods:{
-				selectFolder(){
-					let selected_folder = selectFolder({
+				async selectFolder(){
+					let selected_folder = await selectFolder({
 						'title':'选择项目文件夹',
 						'defaultPath':'D:\\xampps\\htdocs',
 						'properties':[
@@ -196,7 +198,27 @@
 					this.showResult('打包中……');
 					try {
 						let files = await packGitCommits(this.input.path, this.input);
-						this.showResult('打包完成'+ '\n'+files.join('\n'),'success');
+						this.showResult(`打包完成(${files.length})\n${files.join('\n')}`,'success');
+					}
+					catch (e) {
+						this.showResult(e.message,'error');
+					}
+				},
+				async list(){
+					this.showResult('枚举文件中……');
+					try{
+						let files = await listGitCommitsFiles(this.input.path, this.input);
+						this.showResult(`枚举完成(${files.length})\n${files.join('\n')}`,'success');
+					}
+					catch (e) {
+						this.showResult(e.message,'error');
+					}
+				},
+				async list_deleted(){
+					this.showResult('枚举文件中……');
+					try{
+						let files = await listGitCommitsFiles(this.input.path, this.input, 'D');
+						this.showResult(`枚举完成(${files.length})\n${files.join('\n')}`,'success');
 					}
 					catch (e) {
 						this.showResult(e.message,'error');
@@ -209,6 +231,9 @@
 				hideResult(){
 					this.result.message = null;
 					this.result.type = null;
+				},
+				htmlfy(content){
+					return this.$options.filters.htmlfy(content);
 				}
 			},
 			computed:{
@@ -220,10 +245,14 @@
 					if(!this.input.target_commit)return [];
 
 					let target_index = this.available_commits.findIndex(commit=>commit.hash === this.input.target_commit);
-					return this.available_commits.slice(target_index+1);
+					return this.available_commits.slice(target_index+1).concat({
+						hash:null,
+						authorDateRel:'null',
+						subject:'(初始)',
+					});
 				},
 				select_info_ready(){
-					return this.input.path && this.input.branch && this.input.source_commit && this.input.target_commit
+					return this.input.path && this.input.branch && this.input.source_commit && (this.input.target_commit || this.input.target_commit===null)
 				},
 				input_info_ready(){
 					return this.input.filename;
@@ -253,6 +282,13 @@
 						this.input.target_commit = null;
 						this.loadCommits();
 					}
+				}
+			},
+			filters:{
+				htmlfy(content){
+					if(typeof content === "string")
+						return content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+					return content;
 				}
 			},
 			mounted(){

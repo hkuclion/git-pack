@@ -1,20 +1,19 @@
 const electron = require('electron');
-const { dialog, process } = electron.remote;
-const { gitlog } = electron.remote.require('gitlog2');
-const { spawn } = electron.remote.require('child_process');
-const fs = electron.remote.require('fs');
-const path = electron.remote.require('path');
+const { contextBridge, ipcRenderer } = electron;
+const { gitlog } = require('gitlog2');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
-electron.ipcRenderer.on('console.log',(ev,...args)=>{
+ipcRenderer.on('console.log',(ev,...args)=>{
 	console.log(...args);
 });
 
-window.selectFolder = function(options){
+contextBridge.exposeInMainWorld('selectFolder', function(options){
 	let default_options = {};
 
-	return dialog.showOpenDialogSync(Object.assign({},default_options,options));
-};
-
+	return ipcRenderer.sendSync('showOpenDialogSync', Object.assign({}, default_options, options))
+});
 
 let runCmd = function(cmd,param,options,success_codes = [0]){
 	return new Promise((resolve, reject) => {
@@ -36,13 +35,13 @@ let runCmd = function(cmd,param,options,success_codes = [0]){
 	})
 };
 
-window.loadBranches = function(path){
+let loadBranches = function(path){
 	return new Promise((resolve, reject) => {
 		runCmd('git',['branch','--list'],{
 			cwd: path,
 		}).then(output=>{
 			let branches = output.split('\n').filter(line=>line.length).map(line=>{
-				let matches = line.match(/^(\*)?\s+([\w\-]+)$/);
+				let matches = line.match(/^(\*)?\s+(.+)$/);
 				return {
 					selected: !!matches[1],
 					label: matches[2],
@@ -51,13 +50,15 @@ window.loadBranches = function(path){
 			resolve(branches);
 		}).catch(reject);
 	});
-};
+}
 
-window.loadCommits = function(path,branch){
+contextBridge.exposeInMainWorld('loadBranches', loadBranches);
+
+let loadCommits = function(path,branch){
 	return new Promise((resolve, reject) => {
 		const options ={
 			repo: path,
-			number: 50,
+			number: 200,
 			branch,
 			fields:[
 				'hash',
@@ -68,7 +69,7 @@ window.loadCommits = function(path,branch){
 			],
 			nameStatus:false,
 			execOptions:{
-				maxBuffer: 1000 * 1024
+				maxBuffer: 5 * 1024 * 1024
 			}
 		};
 		gitlog(options, function(error, commits) {
@@ -78,18 +79,29 @@ window.loadCommits = function(path,branch){
 		});
 	})
 
-};
+}
 
-window.packGitCommits = function(path,info){
+contextBridge.exposeInMainWorld('loadCommits', loadCommits);
+
+let listGitCommitsFiles = function (path, info, filter = 'd') {
 	return new Promise((resolve, reject) => {
-		runCmd('git',['diff',info.source_commit, info.target_commit,'--name-only','--diff-filter=d'],{
-			cwd: path,
-		}).then(output=>{
-			let files = output.split('\n').filter(line=>line.length);
-			if(!files.length){
+		runCmd('git', ['diff', info.source_commit, info.target_commit, '--name-only', `--diff-filter=${filter}`], {
+			cwd:path,
+		}).then(output => {
+			let files = output.split('\n').filter(line => line.length);
+			if (!files.length) {
 				return reject('No File To Pack');
 			}
+			resolve(files);
+		});
+	});
+};
 
+contextBridge.exposeInMainWorld('listGitCommitsFiles', listGitCommitsFiles);
+
+let packGitCommits = function(path,info){
+	return new Promise(async (resolve, reject) => {
+		listGitCommitsFiles(path,info).then(files=>{
 			let params = [];
 			params.push('archive');
 			params.push(info.target_commit);
@@ -107,12 +119,10 @@ window.packGitCommits = function(path,info){
 			}).catch(reject);
 		}).catch(reject);
 	});
-};
-
-window.pwd = null;
-if(process.argv.length >= 3){
-	if(fs.existsSync(path.join(process.argv[2],'.git'))){
-		window.pwd = process.argv[2];
-	}
 }
 
+contextBridge.exposeInMainWorld('packGitCommits', packGitCommits);
+
+let pwd = null;
+
+ipcRenderer.invoke('get-git').then(response=> contextBridge.exposeInMainWorld('pwd', response))

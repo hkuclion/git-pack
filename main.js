@@ -1,5 +1,7 @@
-const {BrowserWindow, app, dialog} = require('electron');
+const {BrowserWindow, app, dialog, ipcMain} = require('electron');
 const WindowManager = require('./utility/WindowManager');
+const fs = require("fs");
+const path = require("path");
 
 global.alert = (message) => {
 	if (typeof(message) != 'string') {
@@ -12,6 +14,15 @@ global.remote_console = (...args) => {
 		'console.log', ...args
 	);
 };
+
+ipcMain.handle('get-git',function(){
+	if (process.argv.length >= 3) {
+		if (fs.existsSync(path.join(process.argv[2], '.git'))) {
+			return process.argv[2];
+		}
+	}
+})
+
 
 app.on('ready', () => {
 	let mainWindow;
