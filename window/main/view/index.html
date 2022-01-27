@@ -252,7 +252,7 @@
 					});
 				},
 				select_info_ready(){
-					return this.input.path && this.input.branch && this.input.source_commit && (this.input.target_commit || this.input.target_commit===null)
+					return this.input.path && this.input.branch && (this.input.source_commit || this.input.source_commit === null) && this.input.target_commit
 				},
 				input_info_ready(){
 					return this.input.filename;

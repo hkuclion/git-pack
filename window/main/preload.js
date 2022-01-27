@@ -85,9 +85,19 @@ contextBridge.exposeInMainWorld('loadCommits', loadCommits);
 
 let listGitCommitsFiles = function (path, info, filter = 'd') {
 	return new Promise((resolve, reject) => {
-		runCmd('git', ['diff', info.source_commit, info.target_commit, '--name-only', `--diff-filter=${filter}`], {
-			cwd:path,
-		}).then(output => {
+		let run_result;
+		if(info.source_commit === null){
+			run_result = runCmd('git', ['ls-tree', '--name-only', '-r', info.target_commit], {
+				cwd:path,
+			})
+		}
+		else{
+			run_result = runCmd('git', ['diff', info.source_commit, info.target_commit, '--name-only', `--diff-filter=${filter}`], {
+				cwd:path,
+			})
+		}
+
+		run_result.then(output => {
 			let files = output.split('\n').filter(line => line.length);
 			if (!files.length) {
 				return reject('No File To Pack');
