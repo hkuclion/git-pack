@@ -270,7 +270,7 @@
 				['input.path'](newValue,oldValue){
 					if(newValue){
 						let basename =newValue.split(/[\\\/]/).pop();
-						this.input.prefix = basename+'/';
+						//this.input.prefix = basename+'/';
 						this.input.filename = basename+'.zip';
 						this.input.branch = null;
 						this.loadBranches();
